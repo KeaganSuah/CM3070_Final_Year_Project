@@ -1,67 +1,512 @@
 // Coordinates shared app state, navigation, storage, synchronisation and notifications.
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import FeedScreen from './src/screens/FeedScreen'; import MapScreen from './src/screens/MapScreen'; import ReportModalScreen from './src/screens/ReportModalScreen'; import GuidesScreen from './src/screens/GuidesScreen'; import GuideDetailScreen from './src/screens/GuideDetailScreen'; import GuideResultScreen from './src/screens/GuideResultScreen'; import CreateGuideScreen from './src/screens/CreateGuideScreen'; import ProfileScreen from './src/screens/ProfileScreen';
-import { sampleReports } from './src/data/sampleReports'; import { sampleGuides } from './src/data/sampleGuides'; import { COLORS } from './src/constants/theme'; import { calculateReadiness } from './src/utils/guideUtils'; import { normalizeReports } from './src/utils/locationUtils'; import { sanitizeGuides, getGuidePromotionThreshold, guidePlainText } from './src/utils/guideStorage'; import { selectionFeedback } from './src/utils/deviceFeedback';
-import { addNotificationTapListener, DEFAULT_NOTIFICATION_PREFS, getInitialNotificationData, notifyNearbyIncident, notifyNewGuide, prepareNotificationChannels, requestNotificationPermission } from './src/services/notificationService';
-import { fetchCommunityUpdates, isCommunityApiConfigured, publishGuide, publishReport, syncGuideUpvote, syncReportUpvote } from './src/services/communitySyncService';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+} from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
+import FeedScreen from "./src/screens/FeedScreen";
+import MapScreen from "./src/screens/MapScreen";
+import ReportModalScreen from "./src/screens/ReportModalScreen";
+import GuidesScreen from "./src/screens/GuidesScreen";
+import GuideDetailScreen from "./src/screens/GuideDetailScreen";
+import GuideResultScreen from "./src/screens/GuideResultScreen";
+import CreateGuideScreen from "./src/screens/CreateGuideScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
+import { sampleReports } from "./src/data/sampleReports";
+import { sampleGuides } from "./src/data/sampleGuides";
+import { COLORS } from "./src/constants/theme";
+import { calculateReadiness } from "./src/utils/guideUtils";
+import { normalizeReports } from "./src/utils/locationUtils";
+import {
+  sanitizeGuides,
+  getGuidePromotionThreshold,
+  guidePlainText,
+} from "./src/utils/guideStorage";
+import { selectionFeedback } from "./src/utils/deviceFeedback";
+import {
+  addNotificationTapListener,
+  DEFAULT_NOTIFICATION_PREFS,
+  getInitialNotificationData,
+  notifyNearbyIncident,
+  notifyNewGuide,
+  prepareNotificationChannels,
+  requestNotificationPermission,
+} from "./src/services/notificationService";
+import {
+  fetchCommunityUpdates,
+  isCommunityApiConfigured,
+  publishGuide,
+  publishReport,
+  syncGuideUpvote,
+  syncReportUpvote,
+} from "./src/services/communitySyncService";
 
-const REPORTS_STORAGE_KEY='@readis_reports', GUIDES_STORAGE_KEY='@readis_guides', PROFILE_STORAGE_KEY='@readis_profile', NOTIFICATION_PREFS_KEY='@readis_notification_prefs_v1';
-const Tab=createBottomTabNavigator(); const Stack=createNativeStackNavigator(); const navigationRef=createNavigationContainerRef();
+const REPORTS_STORAGE_KEY = "@readis_reports",
+  GUIDES_STORAGE_KEY = "@readis_guides",
+  PROFILE_STORAGE_KEY = "@readis_profile",
+  NOTIFICATION_PREFS_KEY = "@readis_notification_prefs_v1";
+const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+const navigationRef = createNavigationContainerRef();
 // Merges incoming objects by ID and keeps the newest items first.
-const mergeById=(current,incoming)=>{const map=new Map(current.map(x=>[x.id,x]));incoming.forEach(x=>map.set(x.id,{...(map.get(x.id)||{}),...x}));return [...map.values()].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));};
+const mergeById = (current, incoming) => {
+  const map = new Map(current.map((x) => [x.id, x]));
+  incoming.forEach((x) => map.set(x.id, { ...(map.get(x.id) || {}), ...x }));
+  return [...map.values()].sort(
+    (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
+  );
+};
 
 // Builds the five main bottom tabs and passes shared app state into each screen.
-function MainTabs(props){const {reports,guides,profile,notificationPrefs,onEnableNotifications,onUpdateNotificationPrefs,syncStatus}=props;return <Tab.Navigator screenOptions={({route})=>({headerShown:false,tabBarShowLabel:true,tabBarStyle:styles.tabBar,tabBarLabelStyle:styles.tabLabel,tabBarActiveTintColor:COLORS.primary,tabBarInactiveTintColor:COLORS.textMuted,tabBarIcon:({color,focused})=>route.name==='Report'?null:<Ionicons name={({Feed:focused?'home':'home-outline',Map:focused?'location':'location-outline',Guides:focused?'book':'book-outline',Profile:focused?'person-circle':'person-circle-outline'})[route.name]} size={24} color={color}/>})}>
-  <Tab.Screen name="Feed">{p=><FeedScreen {...p} reports={reports} selectedArea={props.selectedArea} setSelectedArea={props.setSelectedArea} selectedType={props.selectedType} setSelectedType={props.setSelectedType} searchText={props.searchText} setSearchText={props.setSearchText} onPressLike={props.likeReport}/>}</Tab.Screen>
-  <Tab.Screen name="Map">{p=><MapScreen {...p} reports={reports} onPressLike={props.likeReport}/>}</Tab.Screen>
-  <Tab.Screen name="Report" options={{tabBarLabel:'Report',tabBarButton:p=><Pressable {...p} style={styles.plusButtonWrap}><View style={styles.plusButton}><Ionicons name="add" size={30} color="#FFF"/></View></Pressable>}}>{p=><ReportModalScreen {...p} onSubmit={props.addReport} isTabScreen/>}</Tab.Screen>
-  <Tab.Screen name="Guides">{p=><GuidesScreen {...p} guides={guides} profile={profile}/>}</Tab.Screen>
-  <Tab.Screen name="Profile">{p=><ProfileScreen {...p} profile={profile} guides={guides} notificationPrefs={notificationPrefs} onEnableNotifications={onEnableNotifications} onUpdateNotificationPrefs={onUpdateNotificationPrefs} syncStatus={syncStatus}/>}</Tab.Screen>
-</Tab.Navigator>;}
+function MainTabs(props) {
+  const {
+    reports,
+    guides,
+    profile,
+    notificationPrefs,
+    onEnableNotifications,
+    onUpdateNotificationPrefs,
+    syncStatus,
+  } = props;
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarShowLabel: true,
+        tabBarStyle: styles.tabBar,
+        tabBarLabelStyle: styles.tabLabel,
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarIcon: ({ color, focused }) =>
+          route.name === "Report" ? null : (
+            <Ionicons
+              name={
+                {
+                  Feed: focused ? "home" : "home-outline",
+                  Map: focused ? "location" : "location-outline",
+                  Guides: focused ? "book" : "book-outline",
+                  Profile: focused ? "person-circle" : "person-circle-outline",
+                }[route.name]
+              }
+              size={24}
+              color={color}
+            />
+          ),
+      })}
+    >
+      <Tab.Screen name="Feed">
+        {(p) => (
+          <FeedScreen
+            {...p}
+            reports={reports}
+            selectedArea={props.selectedArea}
+            setSelectedArea={props.setSelectedArea}
+            selectedType={props.selectedType}
+            setSelectedType={props.setSelectedType}
+            searchText={props.searchText}
+            setSearchText={props.setSearchText}
+            onPressLike={props.likeReport}
+          />
+        )}
+      </Tab.Screen>
+      <Tab.Screen name="Map">
+        {(p) => (
+          <MapScreen {...p} reports={reports} onPressLike={props.likeReport} />
+        )}
+      </Tab.Screen>
+      <Tab.Screen
+        name="Report"
+        options={{
+          tabBarLabel: "Report",
+          tabBarButton: (p) => (
+            <Pressable {...p} style={styles.plusButtonWrap}>
+              <View style={styles.plusButton}>
+                <Ionicons name="add" size={30} color="#FFF" />
+              </View>
+            </Pressable>
+          ),
+        }}
+      >
+        {(p) => (
+          <ReportModalScreen {...p} onSubmit={props.addReport} isTabScreen />
+        )}
+      </Tab.Screen>
+      <Tab.Screen name="Guides">
+        {(p) => <GuidesScreen {...p} guides={guides} profile={profile} />}
+      </Tab.Screen>
+      <Tab.Screen name="Profile">
+        {(p) => (
+          <ProfileScreen
+            {...p}
+            profile={profile}
+            guides={guides}
+            notificationPrefs={notificationPrefs}
+            onEnableNotifications={onEnableNotifications}
+            onUpdateNotificationPrefs={onUpdateNotificationPrefs}
+            syncStatus={syncStatus}
+          />
+        )}
+      </Tab.Screen>
+    </Tab.Navigator>
+  );
+}
 
 // Controls the main Readis state, navigation, persistence and community features.
-export default function App(){
-  const [reports,setReports]=useState([]),[guides,setGuides]=useState([]),[profile,setProfile]=useState({readinessPoints:0,readinessPercent:0,guideProgress:{},lastEarnedPoints:0});
-  const [selectedArea,setSelectedArea]=useState('All'),[selectedType,setSelectedType]=useState('All'),[searchText,setSearchText]=useState('');
-  const [notificationPrefs,setNotificationPrefs]=useState(DEFAULT_NOTIFICATION_PREFS); const [syncStatus,setSyncStatus]=useState({configured:isCommunityApiConfigured(),lastSync:null,error:null});
-  const syncWatermark=useRef(Date.now()); const hydrated=useRef(false);
+export default function App() {
+  const [reports, setReports] = useState([]),
+    [guides, setGuides] = useState([]),
+    [profile, setProfile] = useState({
+      readinessPoints: 0,
+      readinessPercent: 0,
+      guideProgress: {},
+      lastEarnedPoints: 0,
+    });
+  const [selectedArea, setSelectedArea] = useState("All"),
+    [selectedType, setSelectedType] = useState("All"),
+    [searchText, setSearchText] = useState("");
+  const [notificationPrefs, setNotificationPrefs] = useState(
+    DEFAULT_NOTIFICATION_PREFS,
+  );
+  const [syncStatus, setSyncStatus] = useState({
+    configured: isCommunityApiConfigured(),
+    lastSync: null,
+    error: null,
+  });
+  const syncWatermark = useRef(Date.now());
+  const hydrated = useRef(false);
 
   // Loads saved app data and connects notification taps when Readis starts.
-  useEffect(()=>{loadAllData();prepareNotificationChannels();const open=(data)=>{if(!navigationRef.isReady())return;if(data?.route==='GuideDetail'&&data?.guideId)navigationRef.navigate('GuideDetail',{guideId:data.guideId});if(data?.route==='Map'&&data?.reportId)navigationRef.navigate('Root',{screen:'Map',params:{focusReportId:data.reportId,focusKey:Date.now()}});};const listener=addNotificationTapListener(open);getInitialNotificationData().then(open).catch(()=>null);return()=>listener?.remove?.();},[]);
+  useEffect(() => {
+    loadAllData();
+    prepareNotificationChannels();
+    const open = (data) => {
+      if (!navigationRef.isReady()) return;
+      if (data?.route === "GuideDetail" && data?.guideId)
+        navigationRef.navigate("GuideDetail", { guideId: data.guideId });
+      if (data?.route === "Map" && data?.reportId)
+        navigationRef.navigate("Root", {
+          screen: "Map",
+          params: { focusReportId: data.reportId, focusKey: Date.now() },
+        });
+    };
+    const listener = addNotificationTapListener(open);
+    getInitialNotificationData()
+      .then(open)
+      .catch(() => null);
+    return () => listener?.remove?.();
+  }, []);
   // Persists guide and profile changes whenever readiness progress changes.
-  useEffect(()=>{if(guides.length){AsyncStorage.setItem(PROFILE_STORAGE_KEY,JSON.stringify(profile)).catch(()=>null);AsyncStorage.setItem(GUIDES_STORAGE_KEY,JSON.stringify(guides)).catch(()=>null);}},[profile,guides]);
+  useEffect(() => {
+    if (guides.length) {
+      AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile)).catch(
+        () => null,
+      );
+      AsyncStorage.setItem(GUIDES_STORAGE_KEY, JSON.stringify(guides)).catch(
+        () => null,
+      );
+    }
+  }, [profile, guides]);
   // Polls the optional community API and raises alerts for newly received content.
-  useEffect(()=>{if(!isCommunityApiConfigured())return;let cancelled=false;const poll=async(initial=false)=>{try{const data=await fetchCommunityUpdates(initial?0:syncWatermark.current);if(cancelled||!data)return;const incomingReports=normalizeReports(data.reports||[]);const incomingGuides=sanitizeGuides(data.guides||[]);setReports(c=>mergeById(c,incomingReports));setGuides(c=>sanitizeGuides(mergeById(c,incomingGuides)));if(!initial&&notificationPrefs.enabled){for(const r of incomingReports){if(notificationPrefs.nearbyIncidents)await notifyNearbyIncident(r,notificationPrefs.radiusKm);}for(const g of incomingGuides){if(notificationPrefs.newGuides)await notifyNewGuide(g);}}syncWatermark.current=Number(data.serverTime||Date.now());setSyncStatus({configured:true,lastSync:Date.now(),error:null});}catch(e){setSyncStatus({configured:true,lastSync:null,error:e.message});}};poll(true);const timer=setInterval(()=>poll(false),15000);return()=>{cancelled=true;clearInterval(timer);};},[notificationPrefs.enabled,notificationPrefs.nearbyIncidents,notificationPrefs.newGuides,notificationPrefs.radiusKm]);
+  useEffect(() => {
+    if (!isCommunityApiConfigured()) return;
+    let cancelled = false;
+    const poll = async (initial = false) => {
+      try {
+        const data = await fetchCommunityUpdates(
+          initial ? 0 : syncWatermark.current,
+        );
+        if (cancelled || !data) return;
+        const incomingReports = normalizeReports(data.reports || []);
+        const incomingGuides = sanitizeGuides(data.guides || []);
+        setReports((c) => mergeById(c, incomingReports));
+        setGuides((c) => sanitizeGuides(mergeById(c, incomingGuides)));
+        if (!initial && notificationPrefs.enabled) {
+          for (const r of incomingReports) {
+            if (notificationPrefs.nearbyIncidents)
+              await notifyNearbyIncident(r, notificationPrefs.radiusKm);
+          }
+          for (const g of incomingGuides) {
+            if (notificationPrefs.newGuides) await notifyNewGuide(g);
+          }
+        }
+        syncWatermark.current = Number(data.serverTime || Date.now());
+        setSyncStatus({ configured: true, lastSync: Date.now(), error: null });
+      } catch (e) {
+        setSyncStatus({ configured: true, lastSync: null, error: e.message });
+      }
+    };
+    poll(true);
+    const timer = setInterval(() => poll(false), 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [
+    notificationPrefs.enabled,
+    notificationPrefs.nearbyIncidents,
+    notificationPrefs.newGuides,
+    notificationPrefs.radiusKm,
+  ]);
 
   // Creates the starter reports and saves them when no stored reports exist.
-  const seedReports=()=>{const seeded=sampleReports.map((x,i)=>({...x,createdAt:Date.now()-(i+1)*1000}));AsyncStorage.setItem(REPORTS_STORAGE_KEY,JSON.stringify(seeded)).catch(()=>null);return seeded;};
+  const seedReports = () => {
+    const seeded = sampleReports.map((x, i) => ({
+      ...x,
+      createdAt: Date.now() - (i + 1) * 1000,
+    }));
+    AsyncStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(seeded)).catch(
+      () => null,
+    );
+    return seeded;
+  };
   // Creates the starter guides and saves them when no stored guides exist.
-  const seedGuides=()=>{const seeded=sanitizeGuides(sampleGuides);AsyncStorage.setItem(GUIDES_STORAGE_KEY,JSON.stringify(seeded)).catch(()=>null);return seeded;};
+  const seedGuides = () => {
+    const seeded = sanitizeGuides(sampleGuides);
+    AsyncStorage.setItem(GUIDES_STORAGE_KEY, JSON.stringify(seeded)).catch(
+      () => null,
+    );
+    return seeded;
+  };
   // Loads saved reports, guides, profile progress and notification preferences.
-  const loadAllData=async()=>{try{const [sr,sg,sp,sn]=await Promise.all([AsyncStorage.getItem(REPORTS_STORAGE_KEY),AsyncStorage.getItem(GUIDES_STORAGE_KEY),AsyncStorage.getItem(PROFILE_STORAGE_KEY),AsyncStorage.getItem(NOTIFICATION_PREFS_KEY)]);const rawR=sr?JSON.parse(sr):seedReports(),r=normalizeReports(rawR);const rawG=sg?JSON.parse(sg):seedGuides(),g=sanitizeGuides(rawG);const p=sp?JSON.parse(sp):{readinessPoints:0,readinessPercent:0,guideProgress:{},lastEarnedPoints:0};setReports(r);setGuides(g);setNotificationPrefs(sn?{...DEFAULT_NOTIFICATION_PREFS,...JSON.parse(sn)}:DEFAULT_NOTIFICATION_PREFS);setProfile({...p,lastEarnedPoints:p.lastEarnedPoints||0,readinessPercent:calculateReadiness(p.guideProgress||{},g)});hydrated.current=true;}catch{const g=seedGuides();setReports(seedReports());setGuides(g);setProfile({readinessPoints:0,readinessPercent:calculateReadiness({},g),guideProgress:{},lastEarnedPoints:0});}};
+  const loadAllData = async () => {
+    try {
+      const [sr, sg, sp, sn] = await Promise.all([
+        AsyncStorage.getItem(REPORTS_STORAGE_KEY),
+        AsyncStorage.getItem(GUIDES_STORAGE_KEY),
+        AsyncStorage.getItem(PROFILE_STORAGE_KEY),
+        AsyncStorage.getItem(NOTIFICATION_PREFS_KEY),
+      ]);
+      const rawR = sr ? JSON.parse(sr) : seedReports(),
+        r = normalizeReports(rawR);
+      const rawG = sg ? JSON.parse(sg) : seedGuides(),
+        g = sanitizeGuides(rawG);
+      const p = sp
+        ? JSON.parse(sp)
+        : {
+            readinessPoints: 0,
+            readinessPercent: 0,
+            guideProgress: {},
+            lastEarnedPoints: 0,
+          };
+      setReports(r);
+      setGuides(g);
+      setNotificationPrefs(
+        sn
+          ? { ...DEFAULT_NOTIFICATION_PREFS, ...JSON.parse(sn) }
+          : DEFAULT_NOTIFICATION_PREFS,
+      );
+      setProfile({
+        ...p,
+        lastEarnedPoints: p.lastEarnedPoints || 0,
+        readinessPercent: calculateReadiness(p.guideProgress || {}, g),
+      });
+      hydrated.current = true;
+    } catch {
+      const g = seedGuides();
+      setReports(seedReports());
+      setGuides(g);
+      setProfile({
+        readinessPoints: 0,
+        readinessPercent: calculateReadiness({}, g),
+        guideProgress: {},
+        lastEarnedPoints: 0,
+      });
+    }
+  };
   // Updates alert preferences and saves them for the next app session.
-  const updateNotificationPrefs=async(next)=>{setNotificationPrefs(next);await AsyncStorage.setItem(NOTIFICATION_PREFS_KEY,JSON.stringify(next));};
+  const updateNotificationPrefs = async (next) => {
+    setNotificationPrefs(next);
+    await AsyncStorage.setItem(NOTIFICATION_PREFS_KEY, JSON.stringify(next));
+  };
   // Requests notification permission before enabling Readis alerts.
-  const enableNotifications=async()=>{const result=await requestNotificationPermission();if(result.status==='granted'){await updateNotificationPrefs({...notificationPrefs,enabled:true});Alert.alert('Notifications enabled','Readis can now show the alert types you select.');}else Alert.alert('Notifications not enabled','You can continue using Readis without notifications and change permissions later in Settings.');};
+  const enableNotifications = async () => {
+    const result = await requestNotificationPermission();
+    if (result.status === "granted") {
+      await updateNotificationPrefs({ ...notificationPrefs, enabled: true });
+      Alert.alert(
+        "Notifications enabled",
+        "Readis can now show the alert types you select.",
+      );
+    } else
+      Alert.alert(
+        "Notifications not enabled",
+        "You can continue using Readis without notifications and change permissions later in Settings.",
+      );
+  };
   // Creates a new incident report, saves it locally and publishes it when sync is available.
-  const addReport=async(payload)=>{const item={id:`r-${Date.now()}`,votes:1,minutesAgo:1,createdAt:Date.now(),updatedAt:Date.now(),...payload};const updated=[item,...reports];setReports(updated);await AsyncStorage.setItem(REPORTS_STORAGE_KEY,JSON.stringify(updated));publishReport(item).catch(()=>null);Alert.alert('Report posted',isCommunityApiConfigured()?'Your report was saved and queued for community synchronisation.':'Your incident report has been added to the local community feed.');};
+  const addReport = async (payload) => {
+    const item = {
+      id: `r-${Date.now()}`,
+      votes: 1,
+      minutesAgo: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      ...payload,
+    };
+    const updated = [item, ...reports];
+    setReports(updated);
+    await AsyncStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(updated));
+    publishReport(item).catch(() => null);
+    Alert.alert(
+      "Report posted",
+      isCommunityApiConfigured()
+        ? "Your report was saved and queued for community synchronisation."
+        : "Your incident report has been added to the local community feed.",
+    );
+  };
   // Adds one vote to a report and synchronises the vote when possible.
-  const likeReport=async(id)=>{selectionFeedback();const updated=reports.map(r=>r.id===id?{...r,votes:r.votes+1,updatedAt:Date.now()}:r);setReports(updated);await AsyncStorage.setItem(REPORTS_STORAGE_KEY,JSON.stringify(updated));syncReportUpvote(id).catch(()=>null);};
+  const likeReport = async (id) => {
+    selectionFeedback();
+    const updated = reports.map((r) =>
+      r.id === id ? { ...r, votes: r.votes + 1, updatedAt: Date.now() } : r,
+    );
+    setReports(updated);
+    await AsyncStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(updated));
+    syncReportUpvote(id).catch(() => null);
+  };
   // Stores a quiz result and recalculates the user’s readiness progress.
-  const completeGuide=(guide,result)=>{const progress={...profile.guideProgress,[guide.id]:{...result,title:guide.title,updatedAt:Date.now()}};const points=Object.values(progress).reduce((s,x)=>s+(x.pointsEarned||0),0);setProfile({readinessPoints:points,guideProgress:progress,lastEarnedPoints:result.pointsEarned,readinessPercent:calculateReadiness(progress,guides)});};
+  const completeGuide = (guide, result) => {
+    const progress = {
+      ...profile.guideProgress,
+      [guide.id]: { ...result, title: guide.title, updatedAt: Date.now() },
+    };
+    const points = Object.values(progress).reduce(
+      (s, x) => s + (x.pointsEarned || 0),
+      0,
+    );
+    setProfile({
+      readinessPoints: points,
+      guideProgress: progress,
+      lastEarnedPoints: result.pointsEarned,
+      readinessPercent: calculateReadiness(progress, guides),
+    });
+  };
   // Adds a guide vote and applies the 150-vote community promotion rule.
-  const upvoteGuide=(id)=>{selectionFeedback();const updated=sanitizeGuides(guides.map(g=>g.id!==id?g:{...g,votes:g.votes+1,updatedAt:Date.now(),promotedFromCommunity:g.promotedFromCommunity||(g.category==='community'&&g.votes+1>=getGuidePromotionThreshold())}));setGuides(updated);syncGuideUpvote(id).catch(()=>null);};
+  const upvoteGuide = (id) => {
+    selectionFeedback();
+    const updated = sanitizeGuides(
+      guides.map((g) =>
+        g.id !== id
+          ? g
+          : {
+              ...g,
+              votes: g.votes + 1,
+              updatedAt: Date.now(),
+              promotedFromCommunity:
+                g.promotedFromCommunity ||
+                (g.category === "community" &&
+                  g.votes + 1 >= getGuidePromotionThreshold()),
+            },
+      ),
+    );
+    setGuides(updated);
+    syncGuideUpvote(id).catch(() => null);
+  };
   // Creates a community guide, saves it and publishes it when sync is available.
-  const addGuide=(payload)=>{const body=payload.body||guidePlainText(payload);const item={id:`cg-${Date.now()}`,category:'community',votes:1,createdAt:Date.now(),updatedAt:Date.now(),estimatedMinutes:Math.max(2,Math.ceil(body.split(/\s+/).length/80)),...payload,body};setGuides(c=>sanitizeGuides([item,...c]));publishGuide(item).catch(()=>null);Alert.alert('Guide published',isCommunityApiConfigured()?'Your guide was saved and queued for community synchronisation.':'Your community guide is now visible in the local guide library.');};
-  const memoProfile=useMemo(()=>profile,[profile]);
-  return <SafeAreaProvider><NavigationContainer ref={navigationRef}><StatusBar style="dark"/><Stack.Navigator><Stack.Screen name="Root" options={{headerShown:false}}>{()=> <MainTabs reports={reports} selectedArea={selectedArea} setSelectedArea={setSelectedArea} selectedType={selectedType} setSelectedType={setSelectedType} searchText={searchText} setSearchText={setSearchText} guides={guides} profile={memoProfile} addReport={addReport} likeReport={likeReport} notificationPrefs={notificationPrefs} onEnableNotifications={enableNotifications} onUpdateNotificationPrefs={updateNotificationPrefs} syncStatus={syncStatus}/>}</Stack.Screen><Stack.Screen name="GuideDetail" options={{headerShown:false}}>{p=><GuideDetailScreen {...p} guides={guides} onCompleteGuide={completeGuide} onUpvoteGuide={upvoteGuide}/>}</Stack.Screen><Stack.Screen name="GuideResult" options={{headerShown:false}} component={GuideResultScreen}/><Stack.Screen name="CreateGuide" options={{presentation:'modal',headerShown:false}}>{p=><CreateGuideScreen {...p} onSubmitGuide={addGuide}/>}</Stack.Screen></Stack.Navigator></NavigationContainer></SafeAreaProvider>;
+  const addGuide = (payload) => {
+    const body = payload.body || guidePlainText(payload);
+    const item = {
+      id: `cg-${Date.now()}`,
+      category: "community",
+      votes: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      estimatedMinutes: Math.max(2, Math.ceil(body.split(/\s+/).length / 80)),
+      ...payload,
+      body,
+    };
+    setGuides((c) => sanitizeGuides([item, ...c]));
+    publishGuide(item).catch(() => null);
+    Alert.alert(
+      "Guide published",
+      isCommunityApiConfigured()
+        ? "Your guide was saved and queued for community synchronisation."
+        : "Your community guide is now visible in the local guide library.",
+    );
+  };
+  const memoProfile = useMemo(() => profile, [profile]);
+  return (
+    <SafeAreaProvider>
+      <NavigationContainer ref={navigationRef}>
+        <StatusBar style="dark" />
+        <Stack.Navigator>
+          <Stack.Screen name="Root" options={{ headerShown: false }}>
+            {() => (
+              <MainTabs
+                reports={reports}
+                selectedArea={selectedArea}
+                setSelectedArea={setSelectedArea}
+                selectedType={selectedType}
+                setSelectedType={setSelectedType}
+                searchText={searchText}
+                setSearchText={setSearchText}
+                guides={guides}
+                profile={memoProfile}
+                addReport={addReport}
+                likeReport={likeReport}
+                notificationPrefs={notificationPrefs}
+                onEnableNotifications={enableNotifications}
+                onUpdateNotificationPrefs={updateNotificationPrefs}
+                syncStatus={syncStatus}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="GuideDetail" options={{ headerShown: false }}>
+            {(p) => (
+              <GuideDetailScreen
+                {...p}
+                guides={guides}
+                onCompleteGuide={completeGuide}
+                onUpvoteGuide={upvoteGuide}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen
+            name="GuideResult"
+            options={{ headerShown: false }}
+            component={GuideResultScreen}
+          />
+          <Stack.Screen
+            name="CreateGuide"
+            options={{ presentation: "modal", headerShown: false }}
+          >
+            {(p) => <CreateGuideScreen {...p} onSubmitGuide={addGuide} />}
+          </Stack.Screen>
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
+  );
 }
-const styles=StyleSheet.create({tabBar:{position:'absolute',height:88,paddingBottom:10,paddingTop:8,borderTopWidth:1,borderTopColor:COLORS.border,backgroundColor:'#FFF'},tabLabel:{fontSize:12,fontWeight:'600'},plusButtonWrap:{top:-16,justifyContent:'center',alignItems:'center'},plusButton:{width:64,height:64,borderRadius:32,backgroundColor:COLORS.primary,alignItems:'center',justifyContent:'center',shadowColor:'#0B245D',shadowOpacity:.18,shadowRadius:16,shadowOffset:{width:0,height:8},elevation:8}});
+const styles = StyleSheet.create({
+  tabBar: {
+    position: "absolute",
+    height: 88,
+    paddingBottom: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    backgroundColor: "#FFF",
+  },
+  tabLabel: { fontSize: 12, fontWeight: "600" },
+  plusButtonWrap: { top: -16, justifyContent: "center", alignItems: "center" },
+  plusButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#0B245D",
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+});

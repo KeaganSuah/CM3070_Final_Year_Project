@@ -1,22 +1,22 @@
 // Lets web users choose an exact incident position with a Leaflet map pin.
-import React, { useEffect, useRef } from 'react';
-import L from 'leaflet';
+import React, { useEffect, useRef } from "react";
+import L from "leaflet";
 
 // Loads Leaflet styling once before the browser location picker starts.
 const ensureLeafletCss = () => {
-  if (document.getElementById('readis-leaflet-css')) return;
-  const link = document.createElement('link');
-  link.id = 'readis-leaflet-css';
-  link.rel = 'stylesheet';
-  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  if (document.getElementById("readis-leaflet-css")) return;
+  const link = document.createElement("link");
+  link.id = "readis-leaflet-css";
+  link.rel = "stylesheet";
+  link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
   document.head.appendChild(link);
 };
 
 const pinIcon = L.divIcon({
-  className: '',
+  className: "",
   html: '<div style="width:34px;height:34px;border-radius:50% 50% 50% 0;background:#1554D1;border:3px solid white;position:relative;box-shadow:0 5px 14px rgba(15,42,93,.3);transform:rotate(-45deg);"><div style="width:10px;height:10px;background:white;border-radius:50%;position:absolute;left:9px;top:9px;"></div></div>',
   iconSize: [34, 34],
-  iconAnchor: [17, 34]
+  iconAnchor: [17, 34],
 });
 
 // Displays a browser map where the report pin can be dragged or placed.
@@ -40,18 +40,18 @@ export default function LocationPicker({ coordinate, onChange, userLocation }) {
     ensureLeafletCss();
     const map = L.map(containerRef.current).setView(
       [coordinate.latitude, coordinate.longitude],
-      15
+      15,
     );
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 19,
     }).addTo(map);
 
     const marker = L.marker([coordinate.latitude, coordinate.longitude], {
       draggable: true,
       icon: pinIcon,
-      title: 'Drag to incident location'
+      title: "Drag to incident location",
     }).addTo(map);
 
     // Sends the new browser pin coordinates to the report form without forcing a recentre.
@@ -60,12 +60,12 @@ export default function LocationPicker({ coordinate, onChange, userLocation }) {
       onChangeRef.current?.({ latitude, longitude });
     };
 
-    marker.on('dragend', () => {
+    marker.on("dragend", () => {
       const next = marker.getLatLng();
       notifyUserPinChange(next.lat, next.lng);
     });
 
-    map.on('click', (event) => {
+    map.on("click", (event) => {
       marker.setLatLng(event.latlng);
       notifyUserPinChange(event.latlng.lat, event.latlng.lng);
     });
@@ -74,9 +74,10 @@ export default function LocationPicker({ coordinate, onChange, userLocation }) {
     markerRef.current = marker;
 
     const timer = window.setTimeout(() => map.invalidateSize(), 100);
-    const resizeObserver = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(() => map.invalidateSize())
-      : null;
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => map.invalidateSize())
+        : null;
 
     resizeObserver?.observe(containerRef.current);
 
@@ -106,7 +107,7 @@ export default function LocationPicker({ coordinate, onChange, userLocation }) {
     map.setView(
       [coordinate.latitude, coordinate.longitude],
       Math.max(map.getZoom(), 14),
-      { animate: true }
+      { animate: true },
     );
   }, [coordinate.latitude, coordinate.longitude]);
 
@@ -125,13 +126,13 @@ export default function LocationPicker({ coordinate, onChange, userLocation }) {
         [userLocation.latitude, userLocation.longitude],
         {
           radius: 7,
-          color: '#FFFFFF',
+          color: "#FFFFFF",
           weight: 3,
-          fillColor: '#2B74E8',
-          fillOpacity: 1
-        }
+          fillColor: "#2B74E8",
+          fillOpacity: 1,
+        },
       )
-        .bindTooltip('Your current location')
+        .bindTooltip("Your current location")
         .addTo(map);
     }
   }, [userLocation]);
@@ -141,11 +142,11 @@ export default function LocationPicker({ coordinate, onChange, userLocation }) {
       ref={containerRef}
       aria-label="Choose incident location on map"
       style={{
-        width: '100%',
+        width: "100%",
         height: 300,
         borderRadius: 20,
-        overflow: 'hidden',
-        zIndex: 0
+        overflow: "hidden",
+        zIndex: 0,
       }}
     />
   );

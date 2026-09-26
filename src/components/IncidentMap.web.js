@@ -1,50 +1,51 @@
 // Renders incident markers with Leaflet when Readis runs in a web browser.
-import React, { useEffect, useRef } from 'react';
-import L from 'leaflet';
-import { MAP_MARKER_COLOURS, SINGAPORE_REGION } from '../constants/map';
+import React, { useEffect, useRef } from "react";
+import L from "leaflet";
+import { MAP_MARKER_COLOURS, SINGAPORE_REGION } from "../constants/map";
 
 // Loads the Leaflet stylesheet once before the browser map is created.
 const ensureLeafletCss = () => {
-  if (document.getElementById('readis-leaflet-css')) return;
-  const link = document.createElement('link');
-  link.id = 'readis-leaflet-css';
-  link.rel = 'stylesheet';
-  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  if (document.getElementById("readis-leaflet-css")) return;
+  const link = document.createElement("link");
+  link.id = "readis-leaflet-css";
+  link.rel = "stylesheet";
+  link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
   document.head.appendChild(link);
 };
 
 const TYPE_SYMBOLS = {
-  Flood: '≈',
-  Fire: '●',
-  Storm: 'ϟ',
-  'Power Outage': '⚡'
+  Flood: "≈",
+  Fire: "●",
+  Storm: "ϟ",
+  "Power Outage": "⚡",
 };
 
 // Builds a coloured Leaflet marker icon for the report type and selection state.
-const makeMarkerIcon = (type, selected) => L.divIcon({
-  className: '',
-  html: `<div style="width:${selected ? 38 : 32}px;height:${selected ? 38 : 32}px;border-radius:50%;background:${MAP_MARKER_COLOURS[type] || '#1554D1'};border:3px solid white;box-shadow:0 4px 12px rgba(15,42,93,.28);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:17px;">${TYPE_SYMBOLS[type] || '!'}</div>`,
-  iconSize: [selected ? 38 : 32, selected ? 38 : 32],
-  iconAnchor: [selected ? 19 : 16, selected ? 38 : 32],
-  popupAnchor: [0, -34]
-});
+const makeMarkerIcon = (type, selected) =>
+  L.divIcon({
+    className: "",
+    html: `<div style="width:${selected ? 38 : 32}px;height:${selected ? 38 : 32}px;border-radius:50%;background:${MAP_MARKER_COLOURS[type] || "#1554D1"};border:3px solid white;box-shadow:0 4px 12px rgba(15,42,93,.28);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:17px;">${TYPE_SYMBOLS[type] || "!"}</div>`,
+    iconSize: [selected ? 38 : 32, selected ? 38 : 32],
+    iconAnchor: [selected ? 19 : 16, selected ? 38 : 32],
+    popupAnchor: [0, -34],
+  });
 
 // Builds safe popup content for one incident without injecting report text as HTML.
 const createPopup = (report) => {
-  const wrap = document.createElement('div');
-  wrap.style.minWidth = '180px';
+  const wrap = document.createElement("div");
+  wrap.style.minWidth = "180px";
 
-  const title = document.createElement('strong');
+  const title = document.createElement("strong");
   title.textContent = `${report.type} · ${report.severity}`;
 
-  const location = document.createElement('div');
+  const location = document.createElement("div");
   location.textContent = report.location;
-  location.style.marginTop = '4px';
+  location.style.marginTop = "4px";
 
-  const description = document.createElement('div');
+  const description = document.createElement("div");
   description.textContent = report.description;
-  description.style.marginTop = '5px';
-  description.style.color = '#56627f';
+  description.style.marginTop = "5px";
+  description.style.color = "#56627f";
 
   wrap.append(title, location, description);
   return wrap;
@@ -56,7 +57,7 @@ export default function IncidentMap({
   selectedReportId,
   onSelectReport,
   userLocation,
-  focusCoordinate
+  focusCoordinate,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -79,12 +80,12 @@ export default function IncidentMap({
     ensureLeafletCss();
     const map = L.map(containerRef.current, {
       zoomControl: true,
-      attributionControl: true
+      attributionControl: true,
     }).setView([SINGAPORE_REGION.latitude, SINGAPORE_REGION.longitude], 12);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 19,
     }).addTo(map);
 
     reportLayerRef.current = L.layerGroup().addTo(map);
@@ -92,9 +93,10 @@ export default function IncidentMap({
     mapRef.current = map;
 
     const resizeTimer = window.setTimeout(() => map.invalidateSize(), 100);
-    const resizeObserver = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(() => map.invalidateSize())
-      : null;
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => map.invalidateSize())
+        : null;
 
     resizeObserver?.observe(containerRef.current);
 
@@ -118,7 +120,9 @@ export default function IncidentMap({
     if (!map || !layer) return;
 
     const nextIds = new Set(reports.map((report) => report.id));
-    reportDataRef.current = new Map(reports.map((report) => [report.id, report]));
+    reportDataRef.current = new Map(
+      reports.map((report) => [report.id, report]),
+    );
 
     markerRefs.current.forEach((marker, reportId) => {
       if (!nextIds.has(reportId)) {
@@ -135,10 +139,10 @@ export default function IncidentMap({
         marker = L.marker([report.latitude, report.longitude], {
           icon: makeMarkerIcon(report.type, selected),
           keyboard: true,
-          title: `${report.type}: ${report.location}`
+          title: `${report.type}: ${report.location}`,
         });
 
-        marker.on('click', () => {
+        marker.on("click", () => {
           const latestReport = reportDataRef.current.get(report.id);
           if (latestReport) onSelectRef.current?.(latestReport);
         });
@@ -159,7 +163,10 @@ export default function IncidentMap({
     });
 
     if (!initialFitCompleteRef.current && reports.length) {
-      const coordinates = reports.map((report) => [report.latitude, report.longitude]);
+      const coordinates = reports.map((report) => [
+        report.latitude,
+        report.longitude,
+      ]);
 
       if (coordinates.length === 1) {
         map.setView(coordinates[0], 14, { animate: false });
@@ -167,7 +174,7 @@ export default function IncidentMap({
         map.fitBounds(coordinates, {
           padding: [45, 45],
           maxZoom: 14,
-          animate: false
+          animate: false,
         });
       }
 
@@ -182,11 +189,9 @@ export default function IncidentMap({
     const map = mapRef.current;
     if (!map || !focusCoordinate) return;
 
-    map.setView(
-      [focusCoordinate.latitude, focusCoordinate.longitude],
-      15,
-      { animate: true }
-    );
+    map.setView([focusCoordinate.latitude, focusCoordinate.longitude], 15, {
+      animate: true,
+    });
   }, [focusCoordinate]);
 
   // Updates the separate user-location marker without rebuilding incident markers.
@@ -199,12 +204,12 @@ export default function IncidentMap({
 
     L.circleMarker([userLocation.latitude, userLocation.longitude], {
       radius: 8,
-      color: '#FFFFFF',
+      color: "#FFFFFF",
       weight: 3,
-      fillColor: '#2B74E8',
-      fillOpacity: 1
+      fillColor: "#2B74E8",
+      fillOpacity: 1,
     })
-      .bindTooltip('Your current location')
+      .bindTooltip("Your current location")
       .addTo(layer);
   }, [userLocation]);
 
@@ -213,11 +218,11 @@ export default function IncidentMap({
       ref={containerRef}
       aria-label="Map of reported incidents"
       style={{
-        width: '100%',
+        width: "100%",
         height: 480,
         borderRadius: 22,
-        overflow: 'hidden',
-        zIndex: 0
+        overflow: "hidden",
+        zIndex: 0,
       }}
     />
   );
