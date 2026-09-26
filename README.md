@@ -12,7 +12,7 @@ Open the project folder in your terminal and run:
 
 ```bash
 npm install
-```
+````
 
 ### 2. Start Expo
 
@@ -22,11 +22,11 @@ Run:
 npx expo start --clear
 ```
 
-Expo will open a local development page in your browser.
+Expo will start the development server and show a QR code in the terminal. It may also open the Expo development page in your browser.
 
 ## Running on web
 
-Press:
+After Expo starts, press:
 
 ```bash
 w
@@ -36,35 +36,117 @@ This opens the app in your web browser.
 
 The web version is useful for quick testing, but some mobile features such as camera, location permissions, native maps and notifications may behave differently from a real phone.
 
-## Running on a phone with Expo Go
+## Running on iOS Simulator
 
-1. Install **Expo Go** on your phone.
-2. Make sure your phone and computer are on the same Wi-Fi network.
-3. Run:
+This option requires a Mac with Xcode installed.
+
+1. Install Xcode from the Mac App Store.
+2. Open Xcode once and allow it to finish installing required components.
+3. Start Expo:
 
 ```bash
 npx expo start --clear
 ```
 
-4. Scan the QR code shown in the terminal or Expo browser page.
+4. Press:
 
-For iPhone, use the Camera app or Expo Go to scan the QR code.
+```bash
+i
+```
+
+Expo will try to open the app in the iOS Simulator.
+
+If the simulator does not open, open Xcode first and check that an iOS simulator is installed under **Xcode > Settings > Platforms**.
+
+## Running on Android Emulator
+
+This option requires Android Studio and an Android emulator.
+
+1. Install Android Studio.
+2. Open Android Studio and install the required Android SDK components.
+3. Create an emulator from **Device Manager**.
+4. Start the emulator before running the app.
+5. In the project terminal, run:
+
+```bash
+npx expo start --clear
+```
+
+6. Press:
+
+```bash
+a
+```
+
+Expo will try to open the app in the Android emulator.
+
+If Expo cannot find the emulator, make sure Android Studio is installed correctly and that the emulator is already running.
+
+## Running on a phone with Expo Go using QR code
+
+This is the easiest way to test the app on a real device.
+
+### 1. Install Expo Go
+
+Install **Expo Go** on your phone:
+
+* iPhone: download **Expo Go** from the App Store.
+* Android: download **Expo Go** from the Google Play Store.
+
+### 2. Connect to the same Wi-Fi
+
+Make sure your phone and computer are connected to the same Wi-Fi network.
+
+### 3. Start Expo
+
+In the project folder, run:
+
+```bash
+npx expo start --clear
+```
+
+### 4. Scan the QR code
+
+Expo will show a QR code in the terminal or browser page.
+
+For iPhone:
+
+* Open the Camera app and scan the QR code; or
+* Open Expo Go and scan the QR code from there.
+
+For Android:
+
+* Open Expo Go.
+* Tap **Scan QR code**.
+* Scan the QR code shown by Expo.
+
+The app should open inside Expo Go.
+
+### If the QR code does not work
+
+Try starting Expo with tunnel mode:
+
+```bash
+npx expo start --tunnel --clear
+```
+
+This can help when the phone and computer cannot connect directly through the local network.
 
 ## What to expect when using the app
 
 You should see the main Readis tabs:
 
-- **Feed** — view recent incident reports and weather context.
-- **Map** — view reported incidents on a map.
-- **Report** — create a new incident report with location and optional image evidence.
-- **Guides** — read Team Guides and Community Guides.
-- **Profile** — view readiness score, recent progress and notification settings.
+* **Feed** — view recent incident reports and weather context.
+* **Map** — view reported incidents on a map.
+* **Report** — create a new incident report with location and optional image evidence.
+* **Guides** — read Team Guides and Community Guides.
+* **Profile** — view readiness score, recent progress and notification settings.
 
 Some features may ask for permission only when needed:
 
-- Location permission is requested when using current location or Find Me.
-- Camera/photo permission is requested when adding image evidence.
-- Notification permission is requested when enabling alerts.
+* Location permission is requested when using current location or Find Me.
+* Camera/photo permission is requested when adding image evidence.
+* Notification permission is requested when enabling alerts.
 
 If a permission is denied, the app should still allow the main local workflows to continue.
 
@@ -106,4 +188,6 @@ To run the main verification scripts:
 npm run test:all
 ```
 
-This checks the main prototype logic, API behaviour, simple security cases and basic performance smoke tests.
+
+```
+```
