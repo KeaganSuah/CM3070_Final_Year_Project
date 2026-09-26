@@ -187,7 +187,3 @@ To run the main verification scripts:
 ```bash
 npm run test:all
 ```
-
-
-```
-```
