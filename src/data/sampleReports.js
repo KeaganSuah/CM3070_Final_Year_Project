@@ -1,0 +1,121 @@
+// Provides starter incident reports for the first launch of the prototype.
+// Seeds the feed and map with example Singapore incidents on first launch.
+export const sampleReports = [
+  {
+    id: '1',
+    type: 'Flood',
+    area: 'East',
+    location: 'Blk 215 Eastview Avenue',
+    postalCode: '460215',
+    latitude: 1.3496,
+    longitude: 103.9443,
+    severity: 'Moderate',
+    minutesAgo: 10,
+    votes: 23,
+    description: 'Street flooding near the junction. Water level rising.'
+  },
+  {
+    id: '2',
+    type: 'Fire',
+    area: 'Central',
+    location: '12 Riverfront Street',
+    postalCode: '058412',
+    latitude: 1.2898,
+    longitude: 103.8462,
+    severity: 'High',
+    minutesAgo: 18,
+    votes: 41,
+    description: 'Smoke coming from a unit on the 6th floor.'
+  },
+  {
+    id: '3',
+    type: 'Storm',
+    area: 'North',
+    location: '45 North Garden Walk',
+    postalCode: '728145',
+    latitude: 1.4380,
+    longitude: 103.7868,
+    severity: 'Moderate',
+    minutesAgo: 35,
+    votes: 15,
+    description: 'Large tree down blocking the walking path.'
+  },
+  {
+    id: '4',
+    type: 'Power Outage',
+    area: 'West',
+    location: '88 West Park Drive',
+    postalCode: '648088',
+    latitude: 1.3449,
+    longitude: 103.7063,
+    severity: 'Low',
+    minutesAgo: 60,
+    votes: 12,
+    description: 'No electricity in the area since around 7:30 AM.'
+  },
+  {
+    id: '5',
+    type: 'Flood',
+    area: 'South-East',
+    location: '27 Marina Crescent',
+    postalCode: '439027',
+    latitude: 1.3028,
+    longitude: 103.9064,
+    severity: 'Low',
+    minutesAgo: 85,
+    votes: 8,
+    description: 'Water pooling on the side lanes after heavy rain.'
+  },
+  {
+    id: '6',
+    type: 'Storm',
+    area: 'North-East',
+    location: '9 Compassvale Link',
+    postalCode: '544692',
+    latitude: 1.3924,
+    longitude: 103.8955,
+    severity: 'Moderate',
+    minutesAgo: 95,
+    votes: 19,
+    description: 'Strong winds brought down signage near the bus stop.'
+  },
+  {
+    id: '7',
+    type: 'Power Outage',
+    area: 'South',
+    location: '18 Harbour View Road',
+    postalCode: '098633',
+    latitude: 1.2668,
+    longitude: 103.8206,
+    severity: 'Moderate',
+    minutesAgo: 125,
+    votes: 14,
+    description: 'Building lobby and lift still without power after the outage.'
+  },
+  {
+    id: '8',
+    type: 'Flood',
+    area: 'South-West',
+    location: '30 Telok Blangah Rise',
+    postalCode: '090030',
+    latitude: 1.2766,
+    longitude: 103.8080,
+    severity: 'Low',
+    minutesAgo: 138,
+    votes: 11,
+    description: 'Drain overflow causing minor pooling near the carpark entrance.'
+  },
+  {
+    id: '9',
+    type: 'Fire',
+    area: 'North-West',
+    location: '61 Bukit Panjang Ring Road',
+    postalCode: '679961',
+    latitude: 1.3861,
+    longitude: 103.7702,
+    severity: 'High',
+    minutesAgo: 150,
+    votes: 17,
+    description: 'Burning smell and smoke reported around the service corridor.'
+  }
+];
