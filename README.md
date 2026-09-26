@@ -1,4 +1,4 @@
-# Readis MVP 10
+# Readis
 
 Readis is a React Native + Expo mobile app prototype for community disaster reporting and preparedness learning.
 
